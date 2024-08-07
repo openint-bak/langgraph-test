@@ -1,12 +1,12 @@
-import type { AIMessage, BaseMessage } from '@langchain/core/messages'
-import { HumanMessage } from '@langchain/core/messages'
-import { tool } from '@langchain/core/tools'
-import { z } from 'zod'
-import { ChatAnthropic } from '@langchain/anthropic'
-import type { StateGraphArgs } from '@langchain/langgraph'
-import { StateGraph } from '@langchain/langgraph'
-import { MemorySaver } from '@langchain/langgraph'
-import { ToolNode } from '@langchain/langgraph/prebuilt'
+import type {AIMessage, BaseMessage} from '@langchain/core/messages'
+import {HumanMessage} from '@langchain/core/messages'
+import {tool} from '@langchain/core/tools'
+import {z} from 'zod'
+import {ChatAnthropic} from '@langchain/anthropic'
+import type {StateGraphArgs} from '@langchain/langgraph'
+import {StateGraph} from '@langchain/langgraph'
+import {MemorySaver} from '@langchain/langgraph'
+import {ToolNode} from '@langchain/langgraph/prebuilt'
 
 // Define the state interface
 interface AgentState {
@@ -22,7 +22,7 @@ const graphState: StateGraphArgs<AgentState>['channels'] = {
 
 // Define the tools for the agent to use
 const weatherTool = tool(
-  async ({ query }) => {
+  async ({query}) => {
     // This is a placeholder for the actual implementation
     if (
       query.toLowerCase().includes('sf') ||
@@ -68,11 +68,11 @@ async function callModel(state: AgentState) {
   const response = await model.invoke(messages)
 
   // We return a list, because this will get added to the existing list
-  return { messages: [response] }
+  return {messages: [response]}
 }
 
 // Define a new graph
-const workflow = new StateGraph<AgentState>({ channels: graphState })
+const workflow = new StateGraph<AgentState>({channels: graphState})
   .addNode('agent', callModel)
   .addNode('tools', toolNode)
   .addEdge('__start__', 'agent')
@@ -85,12 +85,12 @@ const checkpointer = new MemorySaver()
 // Finally, we compile it!
 // This compiles it into a LangChain Runnable.
 // Note that we're (optionally) passing the memory when compiling the graph
-const app = workflow.compile({ checkpointer })
+const app = workflow.compile({checkpointer})
 
 // Use the Runnable
 const finalState = await app.invoke(
-  { messages: [new HumanMessage('what is the weather in sf')] },
-  { configurable: { thread_id: '42' } },
+  {messages: [new HumanMessage('what is the weather in sf')]},
+  {configurable: {thread_id: '42'}},
 )
 
 console.log(finalState.messages[finalState.messages.length - 1].content)
