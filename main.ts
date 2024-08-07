@@ -7,6 +7,7 @@ import type {StateGraphArgs} from '@langchain/langgraph'
 import {StateGraph} from '@langchain/langgraph'
 import {MemorySaver} from '@langchain/langgraph'
 import {ToolNode} from '@langchain/langgraph/prebuilt'
+import {coda} from './coda.js'
 
 // Define the state interface
 interface AgentState {
@@ -19,6 +20,54 @@ const graphState: StateGraphArgs<AgentState>['channels'] = {
     reducer: (x: BaseMessage[], y: BaseMessage[]) => x.concat(y),
   },
 }
+
+// const codaTool = tool(
+//   async ({query}) => {
+//     const docs = await coda.GET('/docs').then((r) => r.data)
+//     return docs.items.map((item) => item.name).join(', ')
+//   },
+//   {
+//     name: 'coda',
+//     description: 'Call to list the set of docs availab in Coda',
+//     schema: z.object({
+//       query: z.string().describe('The query to use in your search.'),
+//     }),
+//   },
+// )
+const codaTool = tool(
+  async ({title, subtitle, content}) => {
+    await coda.POST('/docs/{docId}/pages', {
+      params: {path: {docId: '0slx_kawnH'}},
+      body: {
+        name: title,
+        subtitle,
+        iconName: 'rocket',
+        imageUrl: 'https://example.com/image.jpg',
+        pageContent: {
+          type: 'canvas',
+          canvasContent: {
+            format: 'markdown',
+            content: content ?? '',
+          },
+        },
+      },
+    })
+    const docs = await coda.GET('/docs').then((r) => r.data)
+    return docs.items.map((item) => item.name).join(', ')
+  },
+  {
+    name: 'coda',
+    description: 'Call to create a new page in Coda',
+    schema: z.object({
+      title: z.string().optional().describe('Title of the page'),
+      content: z.string().optional().describe('Subtitle of the page'),
+      subtitle: z
+        .string()
+        .optional()
+        .describe('Content of the page in markdown format'),
+    }),
+  },
+)
 
 // Define the tools for the agent to use
 const weatherTool = tool(
@@ -41,7 +90,7 @@ const weatherTool = tool(
   },
 )
 
-const tools = [weatherTool]
+const tools = [weatherTool, codaTool]
 const toolNode = new ToolNode<AgentState>(tools)
 
 const model = new ChatAnthropic({
@@ -89,7 +138,15 @@ const app = workflow.compile({checkpointer})
 
 // Use the Runnable
 const finalState = await app.invoke(
-  {messages: [new HumanMessage('what is the weather in sf')]},
+  // {messages: [new HumanMessage('what is the weather in sf')]},
+  // {messages: [new HumanMessage('What documents do I have in Coda?')]},
+  {
+    messages: [
+      new HumanMessage(
+        'What is the weather in sf? Create a page in my coda document with the current weather report.',
+      ),
+    ],
+  },
   {configurable: {thread_id: '42'}},
 )
 
